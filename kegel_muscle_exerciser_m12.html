@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Kegel Muscle Exerciser</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: #000;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      color: #fff;
+      overflow: hidden;
+    }
+
+    /* Full-screen app wrapper */
+    .app {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: #000;
+      overflow: hidden;
+    }
+
+    /* Nav tabs */
+    .nav-row {
+      display: flex;
+      gap: 10px;
+      padding: 14px 14px 0;
+      background: #000;
+      flex-shrink: 0;
+    }
+    .nav-btn {
+      flex: 1;
+      background: #222;
+      color: #aaa;
+      border: 1px solid #444;
+      border-radius: 10px;
+      padding: 12px;
+      font-size: 15px;
+      cursor: pointer;
+      text-align: center;
+      -webkit-appearance: none;
+      font-family: inherit;
+      font-weight: 600;
+    }
+    .nav-btn.active {
+      background: #8fce00;
+      color: #000;
+      border-color: #8fce00;
+    }
+
+    /* Scrollable screen area */
+    .screen-area {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .topbar {
+      background: #1a1a1a;
+      color: #fff;
+      font-size: 17px;
+      font-weight: bold;
+      padding: 14px 16px;
+      border-bottom: 1px solid #333;
+      margin-top: 12px;
+      flex-shrink: 0;
+    }
+
+    .content { padding: 16px; }
+
+    .setting-label {
+      font-size: 15px;
+      color: #ccc;
+      margin-bottom: 8px;
+      margin-top: 18px;
+    }
+    .slider-wrap { display: flex; align-items: center; gap: 10px; }
+    input[type=range] {
+      flex: 1;
+      -webkit-appearance: none;
+      height: 8px;
+      border-radius: 4px;
+      background: #444;
+      outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: #8fce00;
+      border: 2px solid #fff;
+      cursor: pointer;
+    }
+
+    .save-as-label {
+      font-size: 15px;
+      color: #ccc;
+      margin-top: 20px;
+      margin-bottom: 8px;
+    }
+    .name-input {
+      width: 100%;
+      background: #ddd;
+      color: #000;
+      border: 2px solid transparent;
+      border-radius: 8px;
+      padding: 14px;
+      font-size: 16px;
+      font-family: inherit;
+    }
+    .name-input.error { border-color: #e84040; }
+    .error-msg { font-size: 13px; color: #e84040; margin-top: 6px; display: none; }
+
+    .btn-row { display: flex; gap: 12px; margin-top: 18px; }
+    .btn-save {
+      flex: 1;
+      background: #8fce00;
+      color: #000;
+      border: none;
+      border-radius: 10px;
+      padding: 16px;
+      font-size: 17px;
+      font-weight: bold;
+      cursor: pointer;
+      -webkit-appearance: none;
+      font-family: inherit;
+    }
+    .btn-clear {
+      flex: 1;
+      background: #555;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 16px;
+      font-size: 17px;
+      font-weight: bold;
+      cursor: pointer;
+      -webkit-appearance: none;
+      font-family: inherit;
+    }
+
+    .series-divider { border: none; border-top: 1px solid #333; margin: 22px 0 12px; }
+    .series-title { font-size: 14px; color: #888; margin-bottom: 10px; }
+    .series-list { display: flex; flex-direction: column; gap: 10px; }
+    .series-item {
+      background: #1e1e1e;
+      border: 1px solid #333;
+      border-radius: 10px;
+      padding: 14px 16px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .series-item.active-series { border-color: #8fce00; background: #1a2200; }
+    .series-name { font-size: 16px; font-weight: bold; color: #fff; }
+    .series-meta { font-size: 13px; color: #888; margin-top: 4px; }
+    .series-del {
+      background: none;
+      border: none;
+      color: #888;
+      font-size: 22px;
+      cursor: pointer;
+      padding: 0 6px;
+      line-height: 1;
+      flex-shrink: 0;
+      font-family: inherit;
+    }
+    .series-del:active { color: #e84040; }
+    .series-empty { font-size: 14px; color: #555; text-align: center; padding: 16px 0; }
+    .active-badge {
+      font-size: 11px;
+      background: #8fce00;
+      color: #000;
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-weight: bold;
+      margin-left: 8px;
+    }
+
+    /* Exercise / Ready screen */
+    .ready-screen {
+      text-align: center;
+      padding: 40px 20px;
+    }
+    .ready-label { font-size: 15px; color: #888; margin-bottom: 12px; }
+    .ready-series-name { font-size: 26px; font-weight: bold; color: #8fce00; margin-bottom: 12px; }
+    .ready-meta { font-size: 15px; color: #aaa; margin-bottom: 40px; line-height: 2.2; }
+    .btn-start {
+      display: block;
+      width: 100%;
+      background: #8fce00;
+      color: #000;
+      border: none;
+      border-radius: 14px;
+      padding: 22px;
+      font-size: 22px;
+      font-weight: bold;
+      cursor: pointer;
+      letter-spacing: 1px;
+      -webkit-appearance: none;
+      margin-bottom: 14px;
+      font-family: inherit;
+    }
+    .btn-back {
+      display: block;
+      width: 100%;
+      background: #333;
+      color: #fff;
+      border: 1px solid #555;
+      border-radius: 10px;
+      padding: 16px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      -webkit-appearance: none;
+      font-family: inherit;
+    }
+
+    /* Running view */
+    .resume-btn {
+      display: block;
+      width: 100%;
+      background: #d0d0d0;
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      padding: 16px;
+      font-size: 17px;
+      cursor: pointer;
+      margin-bottom: 14px;
+      font-weight: bold;
+      -webkit-appearance: none;
+      font-family: inherit;
+    }
+    .progress-label { font-size: 14px; color: #ccc; margin-bottom: 6px; }
+    .progress-bar-bg {
+      background: #555;
+      border-radius: 6px;
+      height: 18px;
+      overflow: hidden;
+      margin-bottom: 18px;
+    }
+    .session-fill { height: 100%; background: #8fce00; border-radius: 6px; width: 0%; }
+    .phase-label { font-size: 16px; color: #ccc; margin-bottom: 8px; }
+    .phase-bar-wrap {
+      width: 100%;
+      height: 220px;
+      background: #444;
+      border-radius: 12px;
+      overflow: hidden;
+      position: relative;
+      margin-bottom: 14px;
+    }
+    .phase-fill { position: absolute; top: 0; bottom: 0; width: 0%; }
+    .timer-big {
+      font-size: 64px;
+      font-weight: bold;
+      text-align: center;
+      color: #fff;
+      margin: 8px 0;
+    }
+    .rep-info { font-size: 16px; color: #ccc; text-align: center; }
+    .series-info-bar { font-size: 14px; color: #8fce00; text-align: center; margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+
+<div class="app">
+
+  <div class="nav-row">
+    <button class="nav-btn active" id="btn-settings" onclick="showScreen('settings')">&#9881; Settings</button>
+    <button class="nav-btn" id="btn-exercise" onclick="showScreen('exercise')">&#9654; Exercise</button>
+  </div>
+
+  <div class="screen-area">
+
+    <div id="screen-settings">
+      <div class="topbar">Exercise Settings</div>
+      <div class="content">
+        <div class="setting-label">Clench time (seconds): <span id="val-clench">5</span></div>
+        <div class="slider-wrap">
+          <input type="range" min="1" max="30" value="5" step="1" id="sl-clench"
+            oninput="document.getElementById('val-clench').textContent=this.value">
+        </div>
+        <div class="setting-label">Relaxation time (seconds): <span id="val-relax">2</span></div>
+        <div class="slider-wrap">
+          <input type="range" min="1" max="30" value="2" step="1" id="sl-relax"
+            oninput="document.getElementById('val-relax').textContent=this.value">
+        </div>
+        <div class="setting-label">Number of repetitions: <span id="val-reps">7</span></div>
+        <div class="slider-wrap">
+          <input type="range" min="1" max="30" value="7" step="1" id="sl-reps"
+            oninput="document.getElementById('val-reps').textContent=this.value">
+        </div>
+        <div class="save-as-label">Save as</div>
+        <input type="text" class="name-input" id="set-name" placeholder="Series name...">
+        <div class="error-msg" id="name-error">Please enter a name for this series.</div>
+        <div class="btn-row">
+          <button class="btn-save" onclick="saveSeries()">Save</button>
+          <button class="btn-clear" onclick="clearForm()">Clear</button>
+        </div>
+        <hr class="series-divider">
+        <div class="series-title">Saved series</div>
+        <div class="series-list" id="series-list">
+          <div class="series-empty" id="series-empty">No series saved yet.</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="screen-exercise" style="display:none;">
+      <div class="topbar">Kegel Muscle Exerciser</div>
+
+      <div id="ready-view" class="ready-screen">
+        <div class="ready-label">Selected series</div>
+        <div class="ready-series-name" id="ready-name">&#8212;</div>
+        <div class="ready-meta" id="ready-meta"></div>
+        <button class="btn-start" onclick="startExercise()">START</button>
+        <button class="btn-back" onclick="showScreen('settings')">&#8592; Back to settings</button>
+      </div>
+
+      <div id="running-view" style="display:none;">
+        <div class="content">
+          <button class="resume-btn" id="resume-btn" onclick="togglePause()">Pause</button>
+          <div class="series-info-bar" id="series-info-bar"></div>
+          <div class="progress-label">Session progress</div>
+          <div class="progress-bar-bg">
+            <div class="session-fill" id="session-fill"></div>
+          </div>
+          <div class="phase-label" id="phase-label">Clench your muscle!</div>
+          <div class="phase-bar-wrap">
+            <div class="phase-fill" id="phase-fill"></div>
+          </div>
+          <div class="timer-big" id="timer-display">5</div>
+          <div class="rep-info" id="rep-info">Rep 1 of 7</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  let series = [], activeSeriesId = null;
+  let running = false, paused = false, rafId = null;
+  let phase = 'clench', phaseStart = 0, phaseDuration = 5000;
+  let pausedAt = 0, pausedElapsed = 0;
+  let clenchTime = 5, relaxTime = 2, totalReps = 7;
+  let currentRep = 1, sessionTotal = 0, sessionStart = 0;
+
+  // ── Persistence ──────────────────────────────────────────────
+  function saveToStorage() {
+    try {
+      localStorage.setItem('kegel_series', JSON.stringify(series));
+      localStorage.setItem('kegel_active', activeSeriesId !== null ? String(activeSeriesId) : '');
+    } catch(e) {}
+  }
+
+  function loadFromStorage() {
+    try {
+      const raw = localStorage.getItem('kegel_series');
+      if (raw) series = JSON.parse(raw);
+      const act = localStorage.getItem('kegel_active');
+      activeSeriesId = (act && act !== '') ? Number(act) : null;
+      // restore active series settings
+      if (activeSeriesId !== null) {
+        const s = series.find(s => s.id === activeSeriesId);
+        if (s) { clenchTime = s.clench; relaxTime = s.relax; totalReps = s.reps; }
+        else { activeSeriesId = null; }
+      }
+    } catch(e) {}
+  }
+  // ─────────────────────────────────────────────────────────────
+
+  function showScreen(name) {
+    document.getElementById('screen-settings').style.display = name === 'settings' ? 'block' : 'none';
+    document.getElementById('screen-exercise').style.display = name === 'exercise' ? 'block' : 'none';
+    document.getElementById('btn-settings').className = 'nav-btn' + (name === 'settings' ? ' active' : '');
+    document.getElementById('btn-exercise').className = 'nav-btn' + (name === 'exercise' ? ' active' : '');
+  }
+
+  function saveSeries() {
+    const nameEl = document.getElementById('set-name');
+    const errEl = document.getElementById('name-error');
+    const name = nameEl.value.trim();
+    if (!name) { nameEl.classList.add('error'); errEl.style.display = 'block'; return; }
+    nameEl.classList.remove('error'); errEl.style.display = 'none';
+    series.push({
+      id: Date.now(), name,
+      clench: parseInt(document.getElementById('sl-clench').value),
+      relax: parseInt(document.getElementById('sl-relax').value),
+      reps: parseInt(document.getElementById('sl-reps').value)
+    });
+    nameEl.value = '';
+    renderSeriesList();
+    saveToStorage();
+  }
+
+  function clearForm() {
+    document.getElementById('set-name').value = '';
+    document.getElementById('set-name').classList.remove('error');
+    document.getElementById('name-error').style.display = 'none';
+    document.getElementById('sl-clench').value = 5; document.getElementById('val-clench').textContent = 5;
+    document.getElementById('sl-relax').value = 2; document.getElementById('val-relax').textContent = 2;
+    document.getElementById('sl-reps').value = 7; document.getElementById('val-reps').textContent = 7;
+  }
+
+  function deleteSeries(id, e) {
+    e.stopPropagation();
+    series = series.filter(s => s.id !== id);
+    if (activeSeriesId === id) activeSeriesId = null;
+    renderSeriesList();
+    saveToStorage();
+  }
+
+  function selectSeries(id) {
+    const s = series.find(s => s.id === id);
+    if (!s) return;
+    activeSeriesId = id; clenchTime = s.clench; relaxTime = s.relax; totalReps = s.reps;
+    running = false; if (rafId) cancelAnimationFrame(rafId);
+    renderSeriesList();
+    document.getElementById('ready-name').textContent = s.name;
+    document.getElementById('ready-meta').innerHTML =
+      'Clench: <strong style="color:#fff">' + s.clench + 's</strong><br>' +
+      'Relax: <strong style="color:#fff">' + s.relax + 's</strong><br>' +
+      'Repetitions: <strong style="color:#fff">' + s.reps + '</strong>';
+    document.getElementById('ready-view').style.display = 'block';
+    document.getElementById('running-view').style.display = 'none';
+    saveToStorage();
+    showScreen('exercise');
+  }
+
+  function renderSeriesList() {
+    const list = document.getElementById('series-list');
+    list.querySelectorAll('.series-item').forEach(i => i.remove());
+    const empty = document.getElementById('series-empty');
+    if (series.length === 0) { empty.style.display = 'block'; return; }
+    empty.style.display = 'none';
+    series.forEach(s => {
+      const div = document.createElement('div');
+      div.className = 'series-item' + (s.id === activeSeriesId ? ' active-series' : '');
+      div.onclick = () => selectSeries(s.id);
+      div.innerHTML =
+        '<div>' +
+          '<div class="series-name">' + s.name + (s.id === activeSeriesId ? '<span class="active-badge">active</span>' : '') + '</div>' +
+          '<div class="series-meta">Clench ' + s.clench + 's &middot; Relax ' + s.relax + 's &middot; ' + s.reps + ' reps</div>' +
+        '</div>' +
+        '<button class="series-del" onclick="deleteSeries(' + s.id + ', event)">&#x2715;</button>';
+      list.appendChild(div);
+    });
+  }
+
+  function startExercise() {
+    document.getElementById('ready-view').style.display = 'none';
+    document.getElementById('running-view').style.display = 'block';
+    phase = 'clench'; phaseDuration = clenchTime * 1000;
+    currentRep = 1; sessionTotal = totalReps * (clenchTime + relaxTime);
+    pausedElapsed = 0; running = true; paused = false;
+    document.getElementById('resume-btn').textContent = 'Pause';
+    document.getElementById('resume-btn').onclick = togglePause;
+    const s = series.find(s => s.id === activeSeriesId);
+    document.getElementById('series-info-bar').textContent = s ? '\u25B6 ' + s.name : '';
+    document.getElementById('session-fill').style.width = '0%';
+    applyPhaseStyle();
+    const now = performance.now();
+    phaseStart = now; sessionStart = now;
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(loop);
+  }
+
+  function applyPhaseStyle() {
+    const fill = document.getElementById('phase-fill');
+    fill.style.width = '0%';
+    if (phase === 'clench') {
+      fill.style.left = '0'; fill.style.right = ''; fill.style.background = '#8fce00';
+      document.getElementById('phase-label').textContent = 'Clench your muscle!';
+    } else {
+      fill.style.right = '0'; fill.style.left = ''; fill.style.background = '#e84040';
+      document.getElementById('phase-label').textContent = 'Relax your muscle.';
+    }
+  }
+
+  function loop(now) {
+    if (!running) return;
+    if (paused) { rafId = requestAnimationFrame(loop); return; }
+    const phaseElapsed = (now - phaseStart) - pausedElapsed;
+    const phasePct = Math.min(phaseElapsed / phaseDuration, 1);
+    document.getElementById('phase-fill').style.width = (phasePct * 100).toFixed(2) + '%';
+    document.getElementById('timer-display').textContent = Math.max(Math.ceil((phaseDuration - phaseElapsed) / 1000), 0);
+    document.getElementById('session-fill').style.width = (Math.min((now - sessionStart) / (sessionTotal * 1000), 1) * 100).toFixed(2) + '%';
+    document.getElementById('rep-info').textContent = 'Rep ' + currentRep + ' of ' + totalReps;
+    if (phasePct >= 1) {
+      if (phase === 'clench') { phase = 'relax'; phaseDuration = relaxTime * 1000; }
+      else {
+        currentRep++;
+        if (currentRep > totalReps) { finishExercise(); return; }
+        phase = 'clench'; phaseDuration = clenchTime * 1000;
+      }
+      pausedElapsed = 0; phaseStart = now; applyPhaseStyle();
+    }
+    rafId = requestAnimationFrame(loop);
+  }
+
+  function togglePause() {
+    paused = !paused;
+    if (paused) { pausedAt = performance.now(); document.getElementById('resume-btn').textContent = 'Resume'; }
+    else { pausedElapsed += performance.now() - pausedAt; document.getElementById('resume-btn').textContent = 'Pause'; }
+  }
+
+  // ── Bootstrap ─────────────────────────────────────────────────
+  window.addEventListener('DOMContentLoaded', function() {
+    loadFromStorage();
+    renderSeriesList();
+    if (activeSeriesId !== null) {
+      const s = series.find(s => s.id === activeSeriesId);
+      if (s) {
+        document.getElementById('ready-name').textContent = s.name;
+        document.getElementById('ready-meta').innerHTML =
+          'Clench: <strong style="color:#fff">' + s.clench + 's</strong><br>' +
+          'Relax: <strong style="color:#fff">' + s.relax + 's</strong><br>' +
+          'Repetitions: <strong style="color:#fff">' + s.reps + '</strong>';
+      }
+    }
+  });
+  // ─────────────────────────────────────────────────────────────
+
+  function finishExercise() {
+    running = false; cancelAnimationFrame(rafId);
+    const fill = document.getElementById('phase-fill');
+    fill.style.left = '0'; fill.style.right = ''; fill.style.background = '#8fce00'; fill.style.width = '100%';
+    document.getElementById('phase-label').textContent = 'Session complete!';
+    document.getElementById('timer-display').textContent = '\u2713';
+    document.getElementById('session-fill').style.width = '100%';
+    const btn = document.getElementById('resume-btn');
+    btn.textContent = 'Restart';
+    btn.onclick = () => { btn.onclick = togglePause; startExercise(); };
+  }
+</script>
+</body>
+</html>
