@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
-<<link rel="manifest" href="manifest.json">>
+<head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Kegel Muscle Exerciser</title>
@@ -60,6 +60,7 @@
       overflow-y: auto;
       overflow-x: hidden;
       -webkit-overflow-scrolling: touch;
+      height: 0;
     }
 
     .topbar {
@@ -268,7 +269,7 @@
       color: #fff;
       margin: 8px 0;
     }
-    .rep-info { font-size: 16px; color: #ccc; text-align: center; }
+    .rep-info { font-size: 32px; color: #ccc; text-align: center; font-weight: bold; }
     .series-info-bar { font-size: 14px; color: #8fce00; text-align: center; margin-bottom: 8px; }
   </style>
 </head>
@@ -288,7 +289,7 @@
       <div class="content">
         <div class="setting-label">Clench time (seconds): <span id="val-clench">5</span></div>
         <div class="slider-wrap">
-          <input type="range" min="1" max="30" value="5" step="1" id="sl-clench"
+          <input type="range" min="1" max="20" value="5" step="1" id="sl-clench"
             oninput="document.getElementById('val-clench').textContent=this.value">
         </div>
         <div class="setting-label">Relaxation time (seconds): <span id="val-relax">2</span></div>
@@ -298,7 +299,7 @@
         </div>
         <div class="setting-label">Number of repetitions: <span id="val-reps">7</span></div>
         <div class="slider-wrap">
-          <input type="range" min="1" max="30" value="7" step="1" id="sl-reps"
+          <input type="range" min="1" max="20" value="7" step="1" id="sl-reps"
             oninput="document.getElementById('val-reps').textContent=this.value">
         </div>
         <div class="save-as-label">Save as</div>
@@ -349,6 +350,55 @@
 </div>
 
 <script>
+  function playSwoosh() {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const dur = 0.28;
+      const sr = ctx.sampleRate;
+      const samples = Math.floor(sr * dur);
+      const buf = ctx.createBuffer(1, samples, sr);
+      const data = buf.getChannelData(0);
+
+      for (let i = 0; i < samples; i++) {
+        const t = i / sr;
+        const p = t / dur;
+
+        // envelope: ataque rápido, queda suave — como algo passando veloz
+        const env = Math.pow(p, 0.08) * Math.exp(-t * 14);
+
+        // ruído de ar filtrado — base do SWISH
+        const noise = (Math.random() * 2 - 1);
+
+        // varredura de frequência descendente rápida — sensação de algo passando
+        const freq = 1200 * Math.exp(-p * 3.5) + 80;
+        const tone = Math.sin(2 * Math.PI * freq * t);
+
+        // mistura: bastante ar, um pouco de tom para dar corpo
+        data[i] = (noise * 0.75 + tone * 0.25) * env;
+      }
+
+      // filtro passa-baixa para suavizar o ruído e tirar o "chiado de lata"
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(900, ctx.currentTime);
+      filter.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + dur);
+      filter.Q.value = 0.7;
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(1.4, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
+
+      src.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+      src.start();
+    } catch(e) {}
+    try { navigator.vibrate(1000); } catch(e) {}
+  }
+
   let series = [], activeSeriesId = null;
   let running = false, paused = false, rafId = null;
   let phase = 'clench', phaseStart = 0, phaseDuration = 5000;
@@ -470,6 +520,7 @@
     document.getElementById('series-info-bar').textContent = s ? '\u25B6 ' + s.name : '';
     document.getElementById('session-fill').style.width = '0%';
     applyPhaseStyle();
+    playSwoosh();
     const now = performance.now();
     phaseStart = now; sessionStart = now;
     if (rafId) cancelAnimationFrame(rafId);
@@ -504,7 +555,7 @@
         if (currentRep > totalReps) { finishExercise(); return; }
         phase = 'clench'; phaseDuration = clenchTime * 1000;
       }
-      pausedElapsed = 0; phaseStart = now; applyPhaseStyle();
+      pausedElapsed = 0; phaseStart = now; applyPhaseStyle(); playSwoosh();
     }
     rafId = requestAnimationFrame(loop);
   }
