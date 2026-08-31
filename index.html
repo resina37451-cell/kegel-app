@@ -16,7 +16,6 @@
       overflow: hidden;
     }
 
-    /* Full-screen app wrapper */
     .app {
       width: 100vw;
       height: 100vh;
@@ -26,7 +25,6 @@
       overflow: hidden;
     }
 
-    /* Nav tabs */
     .nav-row {
       display: flex;
       gap: 10px;
@@ -54,7 +52,6 @@
       border-color: #8fce00;
     }
 
-    /* Scrollable screen area */
     .screen-area {
       flex: 1;
       overflow-y: auto;
@@ -150,7 +147,7 @@
 
     .series-divider { border: none; border-top: 1px solid #333; margin: 22px 0 12px; }
     .series-title { font-size: 14px; color: #888; margin-bottom: 10px; }
-    .series-list { display: flex; flex-direction: column; gap: 10px; }
+    .series-list { display: flex; flex-direction: column; gap: 10px; padding-bottom: 80px; }
     .series-item {
       background: #1e1e1e;
       border: 1px solid #333;
@@ -160,10 +157,31 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
     }
     .series-item.active-series { border-color: #8fce00; background: #1a2200; }
+    .series-item.dragging {
+      opacity: 0.5;
+      border: 2px dashed #8fce00;
+    }
+    .series-item.drag-over {
+      border-color: #8fce00;
+      background: #222;
+    }
     .series-name { font-size: 16px; font-weight: bold; color: #fff; }
     .series-meta { font-size: 13px; color: #888; margin-top: 4px; }
+    .series-left { display: flex; align-items: center; gap: 10px; }
+    .drag-handle {
+      color: #555;
+      font-size: 20px;
+      cursor: grab;
+      padding: 0 4px;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+    .drag-handle:active { cursor: grabbing; }
     .series-del {
       background: none;
       border: none;
@@ -187,7 +205,6 @@
       margin-left: 8px;
     }
 
-    /* Exercise / Ready screen */
     .ready-screen {
       text-align: center;
       padding: 40px 20px;
@@ -226,7 +243,6 @@
       font-family: inherit;
     }
 
-    /* Running view */
     .resume-btn {
       display: block;
       width: 100%;
@@ -310,7 +326,7 @@
           <button class="btn-clear" onclick="clearForm()">Clear</button>
         </div>
         <hr class="series-divider">
-        <div class="series-title">Saved series</div>
+        <div class="series-title">Saved series — hold and drag to reorder</div>
         <div class="series-list" id="series-list">
           <div class="series-empty" id="series-empty">No series saved yet.</div>
         </div>
@@ -358,39 +374,25 @@
       const samples = Math.floor(sr * dur);
       const buf = ctx.createBuffer(1, samples, sr);
       const data = buf.getChannelData(0);
-
       for (let i = 0; i < samples; i++) {
         const t = i / sr;
         const p = t / dur;
-
-        // envelope: ataque rápido, queda suave — como algo passando veloz
         const env = Math.pow(p, 0.08) * Math.exp(-t * 14);
-
-        // ruído de ar filtrado — base do SWISH
         const noise = (Math.random() * 2 - 1);
-
-        // varredura de frequência descendente rápida — sensação de algo passando
         const freq = 1200 * Math.exp(-p * 3.5) + 80;
         const tone = Math.sin(2 * Math.PI * freq * t);
-
-        // mistura: bastante ar, um pouco de tom para dar corpo
         data[i] = (noise * 0.75 + tone * 0.25) * env;
       }
-
-      // filtro passa-baixa para suavizar o ruído e tirar o "chiado de lata"
       const src = ctx.createBufferSource();
       src.buffer = buf;
-
       const filter = ctx.createBiquadFilter();
       filter.type = 'bandpass';
       filter.frequency.setValueAtTime(900, ctx.currentTime);
       filter.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + dur);
       filter.Q.value = 0.7;
-
       const gain = ctx.createGain();
       gain.gain.setValueAtTime(1.4, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
-
       src.connect(filter);
       filter.connect(gain);
       gain.connect(ctx.destination);
@@ -406,7 +408,9 @@
   let clenchTime = 5, relaxTime = 2, totalReps = 7;
   let currentRep = 1, sessionTotal = 0, sessionStart = 0;
 
-  // ── Persistence ──────────────────────────────────────────────
+  // drag state
+  let dragSrcId = null;
+
   function saveToStorage() {
     try {
       localStorage.setItem('kegel_series', JSON.stringify(series));
@@ -420,7 +424,6 @@
       if (raw) series = JSON.parse(raw);
       const act = localStorage.getItem('kegel_active');
       activeSeriesId = (act && act !== '') ? Number(act) : null;
-      // restore active series settings
       if (activeSeriesId !== null) {
         const s = series.find(s => s.id === activeSeriesId);
         if (s) { clenchTime = s.clench; relaxTime = s.relax; totalReps = s.reps; }
@@ -428,7 +431,6 @@
       }
     } catch(e) {}
   }
-  // ─────────────────────────────────────────────────────────────
 
   function showScreen(name) {
     document.getElementById('screen-settings').style.display = name === 'settings' ? 'block' : 'none';
@@ -488,6 +490,95 @@
     showScreen('exercise');
   }
 
+  // ── Drag and drop (mouse + touch) ────────────────────────────
+  let touchDragEl = null, touchDragId = null, touchClone = null, touchOverId = null;
+
+  function addDragEvents(div, id) {
+    // Mouse drag
+    div.addEventListener('dragstart', function(e) {
+      dragSrcId = id;
+      setTimeout(() => div.classList.add('dragging'), 0);
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    div.addEventListener('dragend', function() {
+      div.classList.remove('dragging');
+      document.querySelectorAll('.series-item').forEach(el => el.classList.remove('drag-over'));
+    });
+    div.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      if (dragSrcId === id) return;
+      document.querySelectorAll('.series-item').forEach(el => el.classList.remove('drag-over'));
+      div.classList.add('drag-over');
+    });
+    div.addEventListener('drop', function(e) {
+      e.preventDefault();
+      if (dragSrcId === id) return;
+      const fromIdx = series.findIndex(s => s.id === dragSrcId);
+      const toIdx = series.findIndex(s => s.id === id);
+      if (fromIdx < 0 || toIdx < 0) return;
+      const [moved] = series.splice(fromIdx, 1);
+      series.splice(toIdx, 0, moved);
+      renderSeriesList();
+      saveToStorage();
+    });
+
+    // Touch drag
+    const handle = div.querySelector('.drag-handle');
+    handle.addEventListener('touchstart', function(e) {
+      e.stopPropagation();
+      touchDragId = id;
+      touchDragEl = div;
+      const touch = e.touches[0];
+      touchClone = div.cloneNode(true);
+      touchClone.style.position = 'fixed';
+      touchClone.style.width = div.offsetWidth + 'px';
+      touchClone.style.opacity = '0.85';
+      touchClone.style.zIndex = '9999';
+      touchClone.style.pointerEvents = 'none';
+      touchClone.style.top = (touch.clientY - div.offsetHeight / 2) + 'px';
+      touchClone.style.left = div.getBoundingClientRect().left + 'px';
+      touchClone.style.borderColor = '#8fce00';
+      document.body.appendChild(touchClone);
+      div.classList.add('dragging');
+    }, { passive: true });
+
+    handle.addEventListener('touchmove', function(e) {
+      if (!touchClone) return;
+      e.preventDefault();
+      const touch = e.touches[0];
+      touchClone.style.top = (touch.clientY - touchDragEl.offsetHeight / 2) + 'px';
+      document.querySelectorAll('.series-item').forEach(el => el.classList.remove('drag-over'));
+      const els = document.querySelectorAll('.series-item');
+      els.forEach(el => {
+        const rect = el.getBoundingClientRect();
+        if (touch.clientY >= rect.top && touch.clientY <= rect.bottom) {
+          const overId = Number(el.dataset.id);
+          if (overId !== touchDragId) {
+            el.classList.add('drag-over');
+            touchOverId = overId;
+          }
+        }
+      });
+    }, { passive: false });
+
+    handle.addEventListener('touchend', function() {
+      if (touchClone) { touchClone.remove(); touchClone = null; }
+      if (touchDragEl) touchDragEl.classList.remove('dragging');
+      document.querySelectorAll('.series-item').forEach(el => el.classList.remove('drag-over'));
+      if (touchDragId !== null && touchOverId !== null && touchDragId !== touchOverId) {
+        const fromIdx = series.findIndex(s => s.id === touchDragId);
+        const toIdx = series.findIndex(s => s.id === touchOverId);
+        if (fromIdx >= 0 && toIdx >= 0) {
+          const [moved] = series.splice(fromIdx, 1);
+          series.splice(toIdx, 0, moved);
+          renderSeriesList();
+          saveToStorage();
+        }
+      }
+      touchDragId = null; touchDragEl = null; touchOverId = null;
+    });
+  }
+
   function renderSeriesList() {
     const list = document.getElementById('series-list');
     list.querySelectorAll('.series-item').forEach(i => i.remove());
@@ -497,16 +588,26 @@
     series.forEach(s => {
       const div = document.createElement('div');
       div.className = 'series-item' + (s.id === activeSeriesId ? ' active-series' : '');
-      div.onclick = () => selectSeries(s.id);
+      div.draggable = true;
+      div.dataset.id = s.id;
       div.innerHTML =
-        '<div>' +
-          '<div class="series-name">' + s.name + (s.id === activeSeriesId ? '<span class="active-badge">active</span>' : '') + '</div>' +
-          '<div class="series-meta">Clench ' + s.clench + 's &middot; Relax ' + s.relax + 's &middot; ' + s.reps + ' reps</div>' +
+        '<div class="series-left">' +
+          '<span class="drag-handle" title="Hold to drag">&#8801;</span>' +
+          '<div>' +
+            '<div class="series-name">' + s.name + (s.id === activeSeriesId ? '<span class="active-badge">active</span>' : '') + '</div>' +
+            '<div class="series-meta">Clench ' + s.clench + 's &middot; Relax ' + s.relax + 's &middot; ' + s.reps + ' reps</div>' +
+          '</div>' +
         '</div>' +
         '<button class="series-del" onclick="deleteSeries(' + s.id + ', event)">&#x2715;</button>';
+      div.addEventListener('click', function(e) {
+        if (e.target.classList.contains('series-del') || e.target.classList.contains('drag-handle')) return;
+        selectSeries(s.id);
+      });
+      addDragEvents(div, s.id);
       list.appendChild(div);
     });
   }
+  // ─────────────────────────────────────────────────────────────
 
   function startExercise() {
     document.getElementById('ready-view').style.display = 'none';
@@ -566,7 +667,6 @@
     else { pausedElapsed += performance.now() - pausedAt; document.getElementById('resume-btn').textContent = 'Pause'; }
   }
 
-  // ── Bootstrap ─────────────────────────────────────────────────
   window.addEventListener('DOMContentLoaded', function() {
     loadFromStorage();
     renderSeriesList();
@@ -581,7 +681,6 @@
       }
     }
   });
-  // ─────────────────────────────────────────────────────────────
 
   function finishExercise() {
     running = false; cancelAnimationFrame(rafId);
