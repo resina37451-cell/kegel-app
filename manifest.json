@@ -1,0 +1,15 @@
+{
+  "name": "Kegel Muscle Exerciser",
+  "short_name": "Kegel",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#8fce00",
+  "icons": [
+    {
+      "src": "https://via.placeholder.com/512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
