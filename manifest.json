@@ -1,13 +1,20 @@
 {
   "name": "Kegel Muscle Exerciser",
   "short_name": "Kegel",
-  "start_url": "/",
+  "description": "An offline app for practicing Kegel muscle exercises with configurable series and animated timers.",
+  "start_url": "/kegel-app/",
+  "scope": "/kegel-app/",
   "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#8fce00",
   "icons": [
     {
-      "src": "https://via.placeholder.com/512x512.png",
+      "src": "https://raw.githubusercontent.com/resina37451-cell/kegel-app/main/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://raw.githubusercontent.com/resina37451-cell/kegel-app/main/icon-512.png",
       "sizes": "512x512",
       "type": "image/png"
     }
